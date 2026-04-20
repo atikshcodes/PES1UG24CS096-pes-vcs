@@ -49,140 +49,41 @@ int object_exists(const ObjectID *id) {
     return access(path, F_OK) == 0;
 }
 
-// ─── IMPLEMENTATION ──────────────────────────────────────────────────────────
+// ─── TODO: Implement these ──────────────────────────────────────────────────
 
 int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out) {
-
+    // Step 1: Convert enum → string
     const char *type_str;
     if (type == OBJ_BLOB) type_str = "blob";
     else if (type == OBJ_TREE) type_str = "tree";
     else type_str = "commit";
 
+    // Step 2: Create header "type size"
     char header[64];
     int header_len = snprintf(header, sizeof(header), "%s %zu", type_str, len);
-    int full_header_len = header_len + 1;
+    int full_header_len = header_len + 1; // include '\0'
 
+    // Step 3: Allocate full buffer
     size_t total_size = full_header_len + len;
     unsigned char *store = malloc(total_size);
     if (!store) return -1;
 
+    // Step 4: Copy header + data
     memcpy(store, header, header_len);
     store[header_len] = '\0';
     memcpy(store + full_header_len, data, len);
 
-    ObjectID id;
-    compute_hash(store, total_size, &id);
+    // Commit 1 ends here (no hashing yet)
 
-    if (object_exists(&id)) {
-        *id_out = id;
-        free(store);
-        return 0;
-    }
-
-    char path[512];
-    object_path(&id, path, sizeof(path));
-
-    char dir[512];
-    snprintf(dir, sizeof(dir), "%s/%.2x%.2x",
-             OBJECTS_DIR, id.hash[0], id.hash[1]);
-
-    mkdir(OBJECTS_DIR, 0755);
-    mkdir(dir, 0755);
-
-    char temp_path[512];
-    snprintf(temp_path, sizeof(temp_path), "%s.tmp", path);
-
-    int fd = open(temp_path, O_CREAT | O_WRONLY | O_TRUNC, 0644);
-    if (fd < 0) {
-        free(store);
-        return -1;
-    }
-
-    if (write(fd, store, total_size) != (ssize_t)total_size) {
-        close(fd);
-        free(store);
-        return -1;
-    }
-
-    fsync(fd);
-    close(fd);
-
-    if (rename(temp_path, path) < 0) {
-        free(store);
-        return -1;
-    }
-
-    int dir_fd = open(dir, O_RDONLY);
-    if (dir_fd >= 0) {
-        fsync(dir_fd);
-        close(dir_fd);
-    }
-
-    *id_out = id;
     free(store);
     return 0;
 }
 
-// ─── COMMIT 5: object_read ──────────────────────────────────────────────────
-
 int object_read(const ObjectID *id, ObjectType *type_out, void **data_out, size_t *len_out) {
-
-    char path[512];
-    object_path(id, path, sizeof(path));
-
-    FILE *f = fopen(path, "rb");
-    if (!f) return -1;
-
-    fseek(f, 0, SEEK_END);
-    size_t file_size = ftell(f);
-    rewind(f);
-
-    unsigned char *buffer = malloc(file_size);
-    if (!buffer) {
-        fclose(f);
-        return -1;
-    }
-
-    fread(buffer, 1, file_size, f);
-    fclose(f);
-
-    // Verify integrity
-    ObjectID computed;
-    compute_hash(buffer, file_size, &computed);
-
-    if (memcmp(computed.hash, id->hash, HASH_SIZE) != 0) {
-        free(buffer);
-        return -1;
-    }
-
-    // Parse header
-    char *data_start = memchr(buffer, '\0', file_size);
-    if (!data_start) {
-        free(buffer);
-        return -1;
-    }
-
-    *data_start = '\0';
-
-    // Determine type
-    if (strncmp((char *)buffer, "blob", 4) == 0)
-        *type_out = OBJ_BLOB;
-    else if (strncmp((char *)buffer, "tree", 4) == 0)
-        *type_out = OBJ_TREE;
-    else
-        *type_out = OBJ_COMMIT;
-
-    // Parse size
-    size_t size;
-    sscanf((char *)buffer, "%*s %zu", &size);
-
-    // Extract data
-    void *data = malloc(size);
-    memcpy(data, data_start + 1, size);
-
-    *data_out = data;
-    *len_out = size;
-
-    free(buffer);
-    return 0;
+    // Not implemented yet
+    (void)id;
+    (void)type_out;
+    (void)data_out;
+    (void)len_out;
+    return -1;
 }
